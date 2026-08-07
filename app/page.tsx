@@ -67,12 +67,16 @@ export default function Page() {
 
       // Remote audio (translated speech) arrives as an inbound track.
       pc.ontrack = (e) => {
-        if (audioRef.current) {
-          audioRef.current.srcObject = e.streams[0];
-        }
+        const el = audioRef.current;
+        if (!el) return;
+        el.srcObject = e.streams[0];
+        // iOS Safari needs an explicit play() even inside a user gesture flow.
+        el.play().catch(() => {});
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       streamRef.current = stream;
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
@@ -161,7 +165,7 @@ export default function Page() {
       <p className={`status${status === "error" ? " error" : ""}`} role="status">
         {statusText}
       </p>
-      <audio ref={audioRef} autoPlay hidden />
+      <audio ref={audioRef} autoPlay playsInline hidden />
     </main>
   );
 }

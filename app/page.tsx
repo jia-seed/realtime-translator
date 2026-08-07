@@ -65,13 +65,25 @@ export default function Page() {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
+      pc.onconnectionstatechange = () => {
+        console.log("[rtc] connectionState:", pc.connectionState);
+      };
+      pc.oniceconnectionstatechange = () => {
+        console.log("[rtc] iceConnectionState:", pc.iceConnectionState);
+      };
+
       // Remote audio (translated speech) arrives as an inbound track.
       pc.ontrack = (e) => {
+        console.log("[rtc] ontrack", e.track.kind, "streams:", e.streams.length);
         const el = audioRef.current;
-        if (!el) return;
+        if (!el) {
+          console.warn("[rtc] audio ref missing when track arrived");
+          return;
+        }
         el.srcObject = e.streams[0];
-        // iOS Safari needs an explicit play() even inside a user gesture flow.
-        el.play().catch(() => {});
+        el.volume = 1;
+        el.muted = false;
+        el.play().catch((err) => console.warn("[rtc] audio.play() rejected:", err));
       };
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -165,7 +177,12 @@ export default function Page() {
       <p className={`status${status === "error" ? " error" : ""}`} role="status">
         {statusText}
       </p>
-      <audio ref={audioRef} autoPlay playsInline hidden />
+      <audio
+        ref={audioRef}
+        autoPlay
+        playsInline
+        style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}
+      />
     </main>
   );
 }

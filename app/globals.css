@@ -11,10 +11,11 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  font-weight: 200;
   background: #0a0a0b;
-  color: #ececee;
+  color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -36,7 +37,7 @@ main {
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: #17171a;
-  color: #ececee;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -74,7 +75,7 @@ main {
 .mic-button.recording {
   background: #2a1214;
   border-color: rgba(239, 68, 68, 0.65);
-  color: #fca5a5;
+  color: #ffffff;
   animation: pulse 1.6s ease-in-out infinite;
 }
 
@@ -92,11 +93,12 @@ main {
 
 .status {
   font-size: 1rem;
-  color: #a1a1aa;
+  color: #ffffff;
+  font-weight: 200;
   letter-spacing: 0.01em;
   min-height: 1.5em;
 }
 
 .status.error {
-  color: #fca5a5;
+  color: #ffffff;
 }

@@ -29,6 +29,23 @@ main {
   gap: 2rem;
   padding: 2rem;
   text-align: center;
+  position: relative;
+}
+
+.transcript {
+  position: fixed;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 22rem;
+  width: calc(100% - 3rem);
+  margin: 0;
+  color: #ffffff;
+  font-weight: 200;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  opacity: 0.85;
 }
 
 .mic-button {

@@ -15,11 +15,13 @@ const DEFAULT_MODEL = "gpt-realtime-2.1";
 export default function Page() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [transcript, setTranscript] = useState<string>("");
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pendingTranscriptRef = useRef<string>("");
 
   const cleanup = useCallback(() => {
     if (dcRef.current) {
@@ -47,6 +49,8 @@ export default function Page() {
     cleanup();
     setStatus("idle");
     setErrorMessage("");
+    setTranscript("");
+    pendingTranscriptRef.current = "";
   }, [cleanup]);
 
   const start = useCallback(async () => {
@@ -92,8 +96,21 @@ export default function Page() {
       streamRef.current = stream;
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
-      // Data channel required by the Realtime API even if we don't send events.
-      dcRef.current = pc.createDataChannel("oai-events");
+      const dc = pc.createDataChannel("oai-events");
+      dcRef.current = dc;
+      dc.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data);
+          if (event.type === "conversation.item.input_audio_transcription.delta") {
+            pendingTranscriptRef.current += event.delta ?? "";
+            setTranscript(pendingTranscriptRef.current);
+          } else if (event.type === "conversation.item.input_audio_transcription.completed") {
+            const finalText = event.transcript ?? pendingTranscriptRef.current;
+            pendingTranscriptRef.current = "";
+            setTranscript(finalText);
+          }
+        } catch {}
+      };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -177,6 +194,7 @@ export default function Page() {
       <p className={`status${status === "error" ? " error" : ""}`} role="status">
         {statusText}
       </p>
+      {transcript && <p className="transcript">{transcript}</p>}
       <audio
         ref={audioRef}
         autoPlay

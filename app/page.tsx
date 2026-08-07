@@ -16,12 +16,34 @@ export default function Page() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [transcript, setTranscript] = useState<string>("");
+  const [waiting, setWaiting] = useState<boolean>(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pendingTranscriptRef = useRef<string>("");
+  // Announce "waiting for a second language" exactly once, and stop once the
+  // model actually starts translating (its first audio output).
+  const announcedRef = useRef<boolean>(false);
+  const translatingRef = useRef<boolean>(false);
+
+  const announceWaiting = useCallback(() => {
+    if (announcedRef.current || translatingRef.current) return;
+    announcedRef.current = true;
+    setWaiting(true);
+    try {
+      const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
+      if (synth) {
+        synth.cancel();
+        synth.speak(
+          new SpeechSynthesisUtterance(
+            "Waiting for a second language for two-translation."
+          )
+        );
+      }
+    } catch {}
+  }, []);
 
   const cleanup = useCallback(() => {
     if (dcRef.current) {
@@ -47,10 +69,16 @@ export default function Page() {
 
   const stop = useCallback(() => {
     cleanup();
+    try {
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    } catch {}
     setStatus("idle");
     setErrorMessage("");
     setTranscript("");
+    setWaiting(false);
     pendingTranscriptRef.current = "";
+    announcedRef.current = false;
+    translatingRef.current = false;
   }, [cleanup]);
 
   const start = useCallback(async () => {
@@ -101,13 +129,31 @@ export default function Page() {
       dc.onmessage = (e) => {
         try {
           const event = JSON.parse(e.data);
-          if (event.type === "conversation.item.input_audio_transcription.delta") {
+          const type: string = event.type ?? "";
+          if (type === "conversation.item.input_audio_transcription.delta") {
             pendingTranscriptRef.current += event.delta ?? "";
             setTranscript(pendingTranscriptRef.current);
-          } else if (event.type === "conversation.item.input_audio_transcription.completed") {
+          } else if (type === "conversation.item.input_audio_transcription.completed") {
             const finalText = event.transcript ?? pendingTranscriptRef.current;
             pendingTranscriptRef.current = "";
             setTranscript(finalText);
+            // First utterance heard and the model isn't translating yet, so it
+            // only has one language: announce that we're waiting for a second.
+            if (!translatingRef.current) announceWaiting();
+          } else if (
+            type === "output_audio_buffer.started" ||
+            type === "response.output_audio.delta" ||
+            type === "response.audio.delta"
+          ) {
+            // The model produced translated speech, so a second language has
+            // arrived. Stop the "waiting" state for the rest of the session.
+            if (!translatingRef.current) {
+              translatingRef.current = true;
+              setWaiting(false);
+              try {
+                if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+              } catch {}
+            }
           }
         } catch {}
       };
@@ -140,7 +186,7 @@ export default function Page() {
       setErrorMessage(message);
       setStatus("error");
     }
-  }, [cleanup]);
+  }, [cleanup, announceWaiting]);
 
   useEffect(() => {
     return () => {
@@ -194,6 +240,11 @@ export default function Page() {
       <p className={`status${status === "error" ? " error" : ""}`} role="status">
         {statusText}
       </p>
+      {waiting && (
+        <p className="waiting" role="status">
+          Waiting for a second language for two-translation…
+        </p>
+      )}
       {transcript && <p className="transcript">{transcript}</p>}
       <audio
         ref={audioRef}
